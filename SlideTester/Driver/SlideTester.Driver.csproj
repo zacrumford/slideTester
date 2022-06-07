@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <WarningLevel>0</WarningLevel>
+    <LangVersion>default</LangVersion>
+    <RootNamespace>SlideTester.Driver</RootNamespace>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <Company>Panopto, Inc.</Company>
+  </PropertyGroup>
+    
+    
+  <ItemGroup>
+    <ProjectReference Include="..\Common\SlideTester.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspose.Slides.NET" Version="22.5.0" />
+    <PackageReference Include="Magick.NET-Q16-HDRI-AnyCPU" Version="11.1.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Aspose\Aspose.lic">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Aspose.Slides.NET.lic" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Microsoft.Office.Interop.PowerPoint">
+      <HintPath>..\OfficeInterop\Microsoft.Office.Interop.PowerPoint.dll</HintPath>
+    </Reference>
+    <Reference Include="office">
+      <HintPath>..\OfficeInterop\Office.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

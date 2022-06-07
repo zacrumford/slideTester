@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SlideTester.Driver", "Driver\SlideTester.Driver.csproj", "{197CD77B-3718-4EFC-9416-CB579202A755}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SlideTester.Common", "Common\SlideTester.Common.csproj", "{98C9D546-3CFF-4A78-B072-838A0779A44A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SlideTester.App", "App\SlideTester.App.csproj", "{AD8D9FFF-59C9-47FE-A864-703EFD70FBF1}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{197CD77B-3718-4EFC-9416-CB579202A755}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{197CD77B-3718-4EFC-9416-CB579202A755}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{197CD77B-3718-4EFC-9416-CB579202A755}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{197CD77B-3718-4EFC-9416-CB579202A755}.Release|Any CPU.Build.0 = Release|Any CPU
+		{98C9D546-3CFF-4A78-B072-838A0779A44A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{98C9D546-3CFF-4A78-B072-838A0779A44A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{98C9D546-3CFF-4A78-B072-838A0779A44A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{98C9D546-3CFF-4A78-B072-838A0779A44A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AD8D9FFF-59C9-47FE-A864-703EFD70FBF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD8D9FFF-59C9-47FE-A864-703EFD70FBF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AD8D9FFF-59C9-47FE-A864-703EFD70FBF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AD8D9FFF-59C9-47FE-A864-703EFD70FBF1}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>netcoreapp3.1</TargetFramework>
+        <LangVersion>latestmajor</LangVersion>
+        <Company>Panopto, Inc.</Company>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="AWSSDK.S3" Version="3.7.9.12" />
+      <PackageReference Include="CommandLineParser" Version="2.9.1" />
+      <PackageReference Include="CsvHelper" Version="27.2.1" />
+      <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Driver\SlideTester.Driver.csproj" />
+      <ProjectReference Include="..\Common\SlideTester.Common.csproj" />
+    </ItemGroup>
+
+</Project>
