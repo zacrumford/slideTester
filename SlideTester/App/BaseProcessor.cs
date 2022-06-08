@@ -25,9 +25,9 @@ namespace SlideTester.App
 {
     internal static class ImageCompareThresholds
     {
-        public static double Error { get; } = 0.9;
-        public static double Warning { get; } = 0.95;
-        public static double Info { get; } = 0.99;
+        public static double Error { get; } = 0.1;
+        public static double Warning { get; } = 0.05;
+        public static double Info { get; } = 0.01;
     }
     
     internal abstract class BaseProcessor<T> : SafeDisposable, IVerbProcessor where T : BaseOptions
@@ -215,17 +215,17 @@ namespace SlideTester.App
             var imgDiff = new MagickImage();
             double diff = referenceImage.Compare(comparandImage, ErrorMetric.RootMeanSquared, imgDiff);
             //await imgDiff.WriteAsync(outputDiffImagePath).ConfigureAwait(false);
-            if (diff <= ImageCompareThresholds.Error)
+            if (diff >= ImageCompareThresholds.Error)
             {
                 logMessage.AppendLine(
                     $"[ERROR] Images differ too much ({diff}): {referenceImagePath} vs. {comparandImagePath}");
             }
-            else if (diff > ImageCompareThresholds.Error && diff <= ImageCompareThresholds.Warning)
+            else if (diff < ImageCompareThresholds.Error && diff >= ImageCompareThresholds.Warning)
             {
                 logMessage.AppendLine(
                     $"[WARNING] Images differ too much ({diff}): {referenceImagePath} vs. {comparandImagePath}");
             }
-            else if (diff > ImageCompareThresholds.Warning && diff <= ImageCompareThresholds.Info)
+            else if (diff < ImageCompareThresholds.Warning && diff >= ImageCompareThresholds.Info)
             {
                 logMessage.AppendLine(
                     $"[INFO] Images differ tool much ({diff}): {referenceImagePath} vs. {comparandImagePath}");
