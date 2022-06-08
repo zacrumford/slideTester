@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Reflection.Metadata;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,6 +20,7 @@ using SlideTester.Common.Log;
 using PanoptoSlide = SlideTester.Driver.Slide;
 using AsposeSlide = Aspose.Slides.Slide;
 using AsposeLicense = Aspose.Slides.License;
+using Encoder = System.Text.Encoder;
 
 namespace SlideTester.Driver.Aspose
 {
@@ -122,8 +123,6 @@ namespace SlideTester.Driver.Aspose
                 Size scaledSize = originalSize.ComputeScaledDimensions(
                     ResolutionHelper.MaxPixelCount(originalSize));
 
-                presentation.SlideSize.SetSize(scaledSize.Width, scaledSize.Height, SlideSizeScaleType.Maximize);
-
                 var tasks = new List<Task<PanoptoSlide>>();
 
                 foreach (ISlide slide in presentation.Slides)
@@ -217,32 +216,32 @@ namespace SlideTester.Driver.Aspose
             List<string> otherText = slide.GetTextFromNonTextBoxes();
             List<string> headerText = slide.HeaderText();
             List<string> footerText = slide.FooterText();
-            
-            // Aspose only outputs svg formatted slide images, write the now.
-            using (Stream stream = File.Create(svgPath))
+
+            // Export slide as bmp from Aspose, load into ImageMagick image
+            using Bitmap bitmap = slide.GetThumbnail(1.0f, 1.0f);
+            IMagickImage slideImage;
+            MagickFactory f = new MagickFactory();
+            using (MemoryStream ms = new MemoryStream())
             {
-                slide.WriteAsSvg(stream, SVGOptions.WYSIWYG);
+                bitmap.Save(ms, ImageFormat.Bmp);
+                ms.Position = 0;
+                slideImage = new MagickImage(await f.Image.CreateAsync(ms, token));
+            }
+            
+            string pngPath = Path.Combine(outputFolderPath, $"{slide.SlideNumber}-{Guid.NewGuid()}.png");
+            
+            // Use ImageMagick to convert our bitmap to thw desired output format (png), resize as needed
+            if (slideImage.Width != desiredImageSize.Width || slideImage.Height != desiredImageSize.Height)
+            {
+                slideImage.Resize(desiredImageSize.Width, desiredImageSize.Height);
             }
 
-            // Pick a unique output path just in case there are odd malformed .ppt files with the same slide number
-            // we saw this type of thing happen circa 2010.
-            string jpgPath = Path.Combine(outputFolderPath, $"{slide.SlideNumber}-{Guid.NewGuid()}.jpg");
-            ChkExpect.IsFalse(File.Exists(jpgPath), nameof(jpgPath));
-            
-            // Use ImageMagick to convert our svg to our desired output format. Sadly there is no 
-            // Cross platform way to have Aspose write to the desired format directly
-            ChkExpect.IsTrue(File.Exists(svgPath), nameof(svgPath));
-            using MagickImage svgImage = new MagickImage(svgPath);
-            if (svgImage.Width != desiredImageSize.Width || svgImage.Height != desiredImageSize.Height)
-            {
-                svgImage.Resize(desiredImageSize.Width, desiredImageSize.Height);
-            }
-            using Stream jpgStream = File.Create(jpgPath);
-            await svgImage.WriteAsync(jpgStream, MagickFormat.Jpg, token).ConfigureAwait(false);
+            await using Stream pngStream = File.Create(pngPath);
+            await slideImage.WriteAsync(pngStream, MagickFormat.Png, token).ConfigureAwait(false);
             
             return new PanoptoSlide(
                 slide.SlideNumber,
-                jpgPath,
+                pngPath,
                 title,
                 subTitle,
                 headerText,
@@ -252,6 +251,13 @@ namespace SlideTester.Driver.Aspose
                 presenterNotes,
                 otherText);
         }
+
+        private static ImageCodecInfo GetJpegEncoderInfo()
+            => GetEncoderInfo("image/jpeg");
+        
+        private static ImageCodecInfo GetEncoderInfo(String mimeType)
+            => ImageCodecInfo.GetImageEncoders()
+                .FirstOrDefault(e => string.Equals(e.MimeType, mimeType, StringComparison.InvariantCultureIgnoreCase) );
         
         /// <summary>
         /// Method to perform global setup (licensing and custom font directory configuration)  

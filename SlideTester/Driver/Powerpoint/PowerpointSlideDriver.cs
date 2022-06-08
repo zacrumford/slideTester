@@ -9,7 +9,8 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-
+using ImageMagick;
+using ImageMagick.ImageOptimizers;
 using Microsoft.Office.Interop.PowerPoint;
 
 using SlideTester.Common;
@@ -456,12 +457,30 @@ namespace SlideTester.Driver.Powerpoint
             try
             {
                 pptPresentation = this.OpenFile(pptApplication, inputFilePath, shouldScrubPpt, token);
-                Dictionary<int, string> slideImagesById = this.ExtractSlideImages(
+                
+                Size unscaledSize = new Size(
+                    (int)(pptPresentation.PageSetup.SlideWidth + 0.5f),
+                    (int)(pptPresentation.PageSetup.SlideHeight + 0.5f));
+                uint maxPixels = ResolutionHelper.MaxPixelCount(unscaledSize);
+
+                Size desiredSize = unscaledSize.ComputeScaledDimensions(maxPixels);
+
+                // Some powerpoint versions (at least 2k12 and not 2k16) have a bug where it
+                // will always round up the width to the nearest multiple of 8
+                // and it will always round height up to the nearest multiple of 4 when determining the output
+                // canvas size. The images exported will always match the resolutions we pass though, so we may get
+                // some black edges around our images if our supplied width and height are not the correct multiples.
+                // The logic above to get scaled resolution should make it so this doesn't happen for all the most common aspect ratio
+                // but there are zillions of ARs so we just add the buffer now for the odd-ball ones.
+                desiredSize.Width += desiredSize.Width % 8;
+                desiredSize.Height += desiredSize.Height % 4;                
+                
+                results = this.ExtractSlidesContent(
                     pptPresentation,
-                    inputFilePath,
+                    inputFilePath, 
                     outputFolderPath,
-                    token);
-                results = this.ExtractSlidesContent(pptPresentation, inputFilePath, slideImagesById, token);
+                    desiredSize,
+                    token).Result;
             }
             finally
             {
@@ -710,6 +729,7 @@ namespace SlideTester.Driver.Powerpoint
             PptPresentation pptPresentation,
             string inputFilePath,
             string outputFolderPath,
+            Size desiredSize,
             CancellationToken token)
         {
             var results = new Dictionary<int, string>();
@@ -727,30 +747,13 @@ namespace SlideTester.Driver.Powerpoint
                 // Export will throw if there are zero slides.
                 if (pptPresentation.Slides.Count > 0)
                 {
-                    Size unscaledSize = new Size(
-                        (int)(pptPresentation.PageSetup.SlideWidth + 0.5f),
-                        (int)(pptPresentation.PageSetup.SlideHeight + 0.5f));
-                    uint maxPixels = ResolutionHelper.MaxPixelCount(unscaledSize);
-
-                    Size scaledResolution = unscaledSize.ComputeScaledDimensions(maxPixels);
-
-                    // Some powerpoint versions (at least 2k12 and not 2k16) have a bug where it
-                    // will always round up the width to the nearest multiple of 8
-                    // and it will always round height up to the nearest multiple of 4 when determining the output
-                    // canvas size. The images exported will always match the resolutions we pass though, so we may get
-                    // some black edges around our images if our supplied width and height are not the correct multiples.
-                    // The logic above to get scaled resolution should make it so this doesn't happen for all the most common aspect ratio
-                    // but there are zillions of ARs so we just add the buffer now for the odd-ball ones.
-                    scaledResolution.Width += scaledResolution.Width % 8;
-                    scaledResolution.Height += scaledResolution.Height % 4;
-
                     string tempOutputPath = this.Scratch.CreateUniqueFolder();
                     
                     pptPresentation.Export(
                         tempOutputPath,
                         ImageFileExtension,
-                        scaledResolution.Width,
-                        scaledResolution.Height);
+                        desiredSize.Width,
+                        desiredSize.Height);
 
                     // ReSharper disable once CommentTypo
                     // The french version of ppt outputs files as "Diapositive<#>.jpg",
@@ -805,15 +808,15 @@ namespace SlideTester.Driver.Powerpoint
         /// <summary>
         /// Extracts slide text, animations and notes.
         /// </summary>
-        private List<PanoptoSlide> ExtractSlidesContent(
+        private async Task<List<PanoptoSlide>> ExtractSlidesContent(
             PptPresentation pptPresentation,
             string inputFilePath,
-            Dictionary<int, string> imagesBySlideId,
+            string outputFilePath,
+            Size desiredSize,
             CancellationToken token)
         {
             var results = new List<PanoptoSlide>(); 
 
-            ChkArg.IsNotNull(imagesBySlideId, nameof(imagesBySlideId));
             ChkArg.IsNotNull(pptPresentation, nameof(pptPresentation));
             ChkArg.IsNotNull(token, nameof(token));
             token.ThrowIfCancellationRequested();
@@ -828,6 +831,26 @@ namespace SlideTester.Driver.Powerpoint
                     List<string> animationsText = null;
                     List<string> notes = null;
 
+                    string slideImagePath;
+
+                    if (!Directory.Exists(outputFilePath))
+                    {
+                        Directory.CreateDirectory(outputFilePath);
+                    }
+                    
+                    try
+                    {
+                        slideImagePath = Path.Combine(
+                            outputFilePath,
+                            $"{slide.SlideNumber}-{Guid.NewGuid()}.png").ToLowerInvariant();
+                        await this.ExportSlideImage(slideImagePath, desiredSize, slide, token).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to export image for slide #{slide.SlideNumber}. Exception:\n{ex}");
+                        slideImagePath = string.Empty;
+                    }
+                    
                     // get the slide title
                     try
                     {
@@ -946,13 +969,10 @@ namespace SlideTester.Driver.Powerpoint
                                 ex));
                     }
 
-                    ChkExpect.IsTrue(
-                        imagesBySlideId.ContainsKey(slide.SlideNumber), 
-                        $"Could not find image for slide (number:{slide.SlideNumber})");
-                    
                     results.Add(new Slide(
                         slide.SlideNumber,
-                        imagesBySlideId[slide.SlideNumber],
+                        slideImagePath,
+                        //imagesBySlideId[slide.SlideNumber],
                         title,
                         subtitle,
                         headers: Enumerable.Empty<string>(),
@@ -972,6 +992,28 @@ namespace SlideTester.Driver.Powerpoint
             }
 
             return results;
+        }
+
+        private async Task ExportSlideImage(
+            string outputFilePath,
+            Size desiredSize,
+            PptSlide slide,
+            CancellationToken token)
+        {
+            string tempFile = this.Scratch.UniqueFilePath("bmp");
+            slide.Export(tempFile, "bmp");
+
+            using MagickImage slideImage = new MagickImage(tempFile);
+            if (slideImage.Width != desiredSize.Width || slideImage.Height != desiredSize.Height)
+            {
+                slideImage.Resize(desiredSize.Width, desiredSize.Height);
+            }
+            
+            await using Stream pngStream = File.Create(outputFilePath);
+            PngOptimizer optimizer = new PngOptimizer();
+            await slideImage.WriteAsync(pngStream, MagickFormat.Png, token).ConfigureAwait(false);
+            
+            File.Delete(tempFile);
         }
     }
 }
